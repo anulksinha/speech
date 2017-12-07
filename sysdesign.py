@@ -14,6 +14,13 @@ import random
 ##                  Calculates the primal emotion of the input for quick actions
 ##                  Changes the structure and connections of the system
 ##                  Acts as reinforcement for the response system
+##                  Contains:
+##                           Positive
+##                           Negative
+##                           Neutral
+##                           Random
+##                           Fear
+##                           Ignore (Counter-balance for fear)
 ##
 ##           Response System       : 
 ##                  Calculates the response from the input
@@ -82,23 +89,27 @@ class SystemDesign:
         self.cu_score = 0
         self.output = np.zeros(shape=(1))
         self.input = np.zeros(shape=(1))
+        self.fear_ig = 0
         ## Initialization of system
         self.emote_neural_structure = np.zeros(shape=(self.emote_layers,self.num_emote_neurons,\
                                                       2,self.num_emote_neurons,3))
         self.emote_neuron = np.zeros(shape=(self.emote_layers,self.num_emote_neurons,8))
         self.emote_fire = np.zeros(shape=(self.emote_layers,self.num_emote_neurons))
-        
+        self.emote_copy = np.zeros(shape=(self.emote_layers,self.num_emote_neurons,\
+                                                      2,self.num_emote_neurons))
         self.resp_neural_structure = np.zeros(shape=(self.resp_layers,self.num_resp_neurons,\
                                                 2,self.num_resp_neurons,3))
         
         self.response_neuron = np.zeros(shape=(self.resp_layers,self.num_resp_neurons,8))
         self.response_fire = np.zeros(shape=(self.resp_layers,self.num_resp_neurons))
-        
+        self.resp_copy = np.zeros(shape=(self.resp_layers,self.num_resp_neurons,\
+                                                2,self.num_resp_neurons))
         self.emote_neural_structure.astype(float)
         self.emote_neuron.astype(float)
         self.resp_neural_structure.astype(float)
         self.response_neuron.astype(float)
-        
+        self.emote_copy.astype(float)
+        self.resp_copy.astype(float)
                
 
     def structural_connection(self):
@@ -238,8 +249,10 @@ class SystemDesign:
                                 self.resp_neural_structure[ii][jj][1][kk][0] = random.uniform(0.5,1.5)
                                 
     def prim_emo_fire(self,input_val):
+        #print('emo')
         self.emote_neuron[:,:,0] += self.neural_decay*self.emote_neuron[:,:,7]
         self.emote_neuron[:,:,7] = 0
+        self.old_em = self.emote_copy
         for i in range(self.emote_layers):
             for j in range(self.num_emote_neurons):
                 if self.emote_neuron[i,j,0] == 0:
@@ -256,13 +269,22 @@ class SystemDesign:
             for j in range(self.num_emote_neurons-1,-1,-1):
                 if i == 0:
                     neuro_fsum = np.tanh(self.emote_neural_structure[i,j,0,0,0]*input_val)
+                    #print(self.emote_neural_structure[i,j,0,0,0]*input_val)
+                    self.emote_copy[i,j,0,0] = self.emote_neural_structure[i,j,0,0,0]*input_val
                 else:
                     neuro_fsum = np.sum(np.tanh(np.multiply\
                                                 (self.emote_neural_structure[i,j,0,:,0],self.emote_neuron[i-1,:,0])))
+                    #x=np.multiply(self.emote_neural_structure[i,j,0,:,0],\
+                    #                                         self.emote_neuron[i-1,:,0])
+                    #print(x)
+                    self.emote_copy[i,j,0,:] = np.multiply(self.emote_neural_structure[i,j,0,:,0],\
+                                                             self.emote_neuron[i-1,:,0])
                     
                 if i < self.emote_layers-1:
                     neuro_bsum = np.sum(np.tanh(np.multiply\
                                                 (self.emote_neural_structure[i,j,1,:,0],self.emote_neuron[i+1,:,0])))
+                    self.emote_copy[i,j,1,:] = np.multiply(self.emote_neural_structure[i,j,1,:,0],\
+                                                             self.emote_neuron[i+1,:,0])
                 else:
                     neuro_bsum = 0
 
@@ -274,16 +296,32 @@ class SystemDesign:
                     #print(ex_in)
                     if ex_in[0] == 1:
                         self.emote_neuron[i,j,0] *= -1
+                        if self.score[-1]<0:
+                            self.emote_neuron[i,j,4] *= 0.5
+                            self.emote_neuron[i,j,4] += 0.5
+                        else:
+                            self.emote_neuron[i,j,5] *= 0.5
+                            self.emote_neuron[i,j,5] += 0.5
+                    else:
+                        if self.score[-1]<0:
+                            self.emote_neuron[i,j,5] *= 0.5
+                            self.emote_neuron[i,j,5] += 0.5
+                        else:
+                            self.emote_neuron[i,j,4] *= 0.5
+                            self.emote_neuron[i,j,4] += 0.5
                         #print('neg')
+            #print(self.emote_copy)
         #print(self.emote_neuron[:,:,0])                
         ## Implement Synaptic space
                 
     def resp_sys_fire(self,input_val):
+        #print('rs')
         #neuro_fsum = 0
         self.input = np.append(self.input,input_val)
         neuro_bsum = 0
         self.response_neuron[:,:,0] += self.neural_decay*self.response_neuron[:,:,7]
         self.response_neuron[:,:,7] = 0
+        self.old_rs = self.resp_copy
         for i in range(self.resp_layers):
             for j in range(self.num_resp_neurons):
                 if self.response_neuron[i,j,0] == 0:
@@ -302,33 +340,116 @@ class SystemDesign:
                     neuro_fsum = np.tanh(self.resp_neural_structure[i,j,0,0,0]*input_val)
                     neuro_fsum += np.sum(np.tanh
                                          (np.multiply(self.resp_neural_structure[i,j,0,1:7,0],self.emote_neuron[-1,:,0])))
+                    self.resp_copy[i,j,0,1:7] = np.multiply(self.resp_neural_structure[i,j,0,1:7,0],\
+                                                              self.emote_neuron[-1,:,0]) + \
+                    (self.resp_neural_structure[i,j,0,0,0]*input_val)
                 else:
                     neuro_fsum = np.sum(np.tanh
                                         (np.multiply(self.resp_neural_structure[i,j,0,:,0],self.response_neuron[i-1,:,0])))
+                    self.resp_copy[i,j,0,:] = np.multiply(self.resp_neural_structure[i,j,0,:,0],\
+                                                            self.response_neuron[i-1,:,0])
                     
                 if i < self.resp_layers-1:    
                     neuro_bsum = np.sum(np.tanh
                                         (np.multiply(self.resp_neural_structure[i,j,1,:,0],self.response_neuron[i+1,:,0])))
+                    self.resp_copy[i,j,1,:] = np.multiply(self.resp_neural_structure[i,j,1,:,0],\
+                                                            self.response_neuron[i+1,:,0])
                 
                 if neuro_fsum + neuro_bsum <= 0:
                     self.response_neuron[i,j,0] = 0
                 else:
                     self.response_neuron[i,j,0] = neuro_fsum + neuro_bsum
-                    if random.choices([0,1],[self.response_neuron[i,j,4],self.response_neuron[i,j,5]])[0] == 1:
+                    ex_in = random.choices([0,1],[self.response_neuron[i,j,4],self.response_neuron[i,j,5]])
+                    #print(ex_in.shape)
+                    if ex_in[0] == 1:
                         self.response_neuron[i,j,0] *= -1
+                        if self.score[-1]<0:
+                            self.response_neuron[i,j,4] *= 0.5
+                            self.response_neuron[i,j,4] += 0.5
+                        else:
+                            self.response_neuron[i,j,5] *= 0.5
+                            self.response_neuron[i,j,5] += 0.5
+                    else:
+                        if self.score[-1]<0:
+                            self.response_neuron[i,j,5] *= 0.5
+                            self.response_neuron[i,j,5] += 0.5
+                        else:
+                            self.response_neuron[i,j,4] *= 0.5
+                            self.response_neuron[i,j,4] += 0.5
+                            
                         #print('neg')
         self.output = np.append(self.output,np.sum(np.tanh(self.response_neuron[-1,:,0])))
         
         ## Score update
-        self.score = np.append(self.score,(self.output[-2]-self.input[-1])/self.input[-1])
+        self.score = np.append(self.score,(self.output[-2]-self.input[-1]))
         self.cu_score -= np.power(((self.output[-2]-self.input[-1])/self.input[-1]),2)
         ## Implement Synaptic space
-    '''  
+        #self.prim_emo_control_system()
+        #self.prim_emo_control_system()
     def prim_emo_control_system(self):
         ## To implement LTDLTP, weight update, excitory and inhibitory probability update
+        ## Weight Update
+        
+        if len(self.output)>self.emote_layers:
+            abssum = np.sum(np.absolute(self.emote_neuron[-1,:,0]))
+            delta = (-self.lr * self.score[-1])*(1+self.emote_neuron[-1,0,0]/abssum)\
+            *(1-self.emote_neuron[-1,1,0]/abssum)
+            if np.isnan(delta):
+                delta = self.lr * self.synaptic_diffuse * self.old_em
+            else:
+                delta *= self.synaptic_diffuse * self.old_em
+            print('##########################################################################################')
+            self.emote_neural_structure[:,:,:,:,0] = np.absolute(np.multiply(self.emote_neural_structure[:,:,:,:,0],1+delta))
+            self.emote_neural_structure[:,:,:,:,0] += self.emote_neural_structure[:,:,:,:,2] + 0.01
+            
+            for i in range(self.emote_layers):
+
+                for j in range(self.num_emote_neurons):
+                    if np.max(self.emote_neural_structure[i,j,:,:,0]) > self.max_weight:
+                        self.emote_neural_structure[i,j,:,:,0] /= np.max(self.emote_neural_structure[i,j,:,:,0])
+            
+            
+            ## Fear or Ignore
+            self.fear_ig = (-self.lr * self.score[-1])*(1+self.emote_neuron[-1,4,0]/abssum)\
+            *(1-self.emote_neuron[-1,5,0]/abssum)
+            
+            if np.isnan(self.fear_ig):
+                self.fear_ig = 0.2
+            self.emote_neuron[:,:,2] *= 1 + self.fear_ig
+
+            self.lr /= self.score[-1]
+            ## Probability Update
+
+            ## Synaptic scaling
+    
     def resp_sys_control_system(self):
         ## To implement LTDLTP, weight update, excitory and inhibitory probability update
-    
+        ## Weight Update
+        abssum = np.sum(np.absolute(self.emote_neuron[-1,:,0]))
+        delta = (-self.lr * self.score[-1])*(1+self.emote_neuron[-1,0,0]/abssum)\
+        *(1-self.emote_neuron[-1,1,0]/abssum)
+        if np.isnan(delta):
+            delta = self.lr * self.synaptic_diffuse * self.old_rs
+        else:
+            delta *= self.synaptic_diffuse * self.old_rs
+        #print('##########################################################################################')
+        
+        self.resp_neural_structure[:,:,:,:,0] = np.absolute(np.multiply(self.resp_neural_structure[:,:,:,:,0],1+delta))
+        self.resp_neural_structure[:,:,:,:,0] += self.resp_neural_structure[:,:,:,:,2] + 0.01
+        
+        for ii in range(self.resp_layers):
+
+            for jj in range(self.num_resp_neurons):
+                if np.max(self.resp_neural_structure[ii,jj,:,:,0]) > self.max_weight:
+                    self.resp_neural_structure[ii,jj,:,:,0] /= np.max(self.resp_neural_structure[ii,jj,:,:,0])
+                    self.resp_neural_structure[:,:,:,:,0] += self.resp_neural_structure[:,:,:,:,2] + 0.01
+        ## Fear or Ignore
+        
+        #print(fear_ig)
+        self.response_neuron[:,:,2] *= 1 + self.fear_ig
+        
+        ## Probability Update
+    ''' 
     def save_model(self):
         
     def load_model(self):
@@ -349,7 +470,7 @@ class SystemDesign:
         print('MAX Forward connections per neuron  : '+str(self.f_max_connections))
         print('MAX Backward connections per neuron : '+str(self.b_max_connections))
         print('MAX neural connection weight        : '+str(self.max_weight))
-        print('Score                               : '+str(self.score))
+        print('Error                               : '+str(self.score))
         print('\nPrimal Emotion System Connection  : \n'+str(self.emote_neural_structure[:,:,:,:,0]))
         print('\nPrimal Emotion System Neuron      : \n'+str(self.emote_neuron[:,:,0]))
         print('\nResponse System Connection        : \n'+str(self.resp_neural_structure[:,:,:,:,0]))
