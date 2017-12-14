@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 plt.switch_backend('agg') 
 #import systemdesign
 import copy
-from systemdesign_updated import SystemDesign
+from sysdesign import SystemDesign
 
 if __name__ == '__main__':
 
@@ -27,6 +27,7 @@ if __name__ == '__main__':
     data_resam = np.multiply(1/x,data)
     print(data_resam.flatten().shape)
     data_resam[abs(data_resam[:])<0.0001] = 0.0001
+    #data_resam += 1 
     
     #plt.plot(times,data_resam)
     #plt.show
@@ -45,7 +46,10 @@ if __name__ == '__main__':
     rs_n = 16
     em_l = 3
     rs_l = 4
-    w_update = False
+    w_update = True
+    ## choose between mse optimization(True) and corrcoef optimization(False)
+    
+    mse_corr = True
     objlist = []
     list_sc = []
     best_score_gen = []
@@ -71,6 +75,8 @@ if __name__ == '__main__':
     logfile.write('\n#Emotion Layers                  : '+str(em_l))
     logfile.write('\n#Response Neurons                : '+str(rs_n))
     logfile.write('\n#Response Layers                 : '+str(rs_l))
+    logfile.write('\n#Weight Update Active            : '+str(w_update))
+    logfile.write('\n#MSE(True) or Cross-Corr(False)  : '+str(mse_corr))
     logfile.write('\n##################################################################################')
     print('##################################################################################')
     print('Training Started')
@@ -130,7 +136,8 @@ if __name__ == '__main__':
                                 new_net.resp_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
                                 new_net.response_neuron[i,j,p] = random.uniform(0,1)
                 else:    
-                    new_net = SystemDesign(gen=g+1,input_dim = in_dim,num_emote_neurons=em_n,resp_layers=rs_l,num_resp_neurons=rs_n, w_up = w_update)
+                    new_net = SystemDesign(gen=g+1,input_dim = in_dim,num_emote_neurons=em_n,\
+                    resp_layers=rs_l,num_resp_neurons=rs_n, w_up = w_update, mse_corr=mse_corr)
                     new_net.structural_connection()
                     new_net.random_connection()
                 objlist.append(new_net)
@@ -142,8 +149,10 @@ if __name__ == '__main__':
                 ## Select top 2
                 if g>0 and s == 0:
                     #print('ok g')
-                    
-                    list_sc[-1].sort(key= lambda x:(x[1],x[2]))
+                    if mse_corr:
+                        list_sc[-1].sort(key= lambda x:(x[2],x[1]))
+                    else:
+                        list_sc[-1].sort(key= lambda x:(x[1],x[2]))
                     print('\t'+str(list_sc[-1][-1]))
                     print('\t'+str(list_sc[-1][-2]))
                     best_score = list_sc[-1][-1][1]
@@ -197,12 +206,22 @@ if __name__ == '__main__':
                     #print('\t'+str(list_sc[-1]))
                     #del objlist[0:pop_gen]
                     best_score_gen.append([counter-1,best_score,mse])
-                    if best_score >= acc_thresh or g>Total_gen:
-                        #print('Exceed')
-                        flag = False
-                        counter += 1
-                        break
-                        #print(flag)
+                    #print(mse)
+                    if mse_corr:
+                        if abs(mse) < 0.001 or g>Total_gen:
+                        #if best_score >= acc_thresh or mse < -0.001 or g>Total_gen:
+                            print('Exceed')
+                            flag = False
+                            counter += 1
+                            break
+                            #print(flag)
+                    else:
+                        if best_score >= acc_thresh or g>Total_gen:
+                            print('Exceed')
+                            flag = False
+                            counter += 1
+                            break
+                            #print(flag)
 
                 
 
@@ -430,8 +449,9 @@ if __name__ == '__main__':
     #data_norm = normalize(data.reshape((-1,len(data)))).flatten()
     data_resamt = np.multiply(1/xt,datat)
     data_resamt[abs(data_resamt[:])<0.0001] = 0.0001
+    #data_resam += 1
     print(data_resamt.flatten().shape)
-    duration = 100
+    duration = 1000
     aclist = []
     score = []
     print('#############################################################################')
@@ -464,15 +484,15 @@ if __name__ == '__main__':
     logfile.write('\nPrimal Emotion Neuron inhibit prob: \n'+str(bestobj.emote_neuron[:,:,5]))
     logfile.write('\nResponse Neuron inhibit prob      : \n'+str(bestobj.response_neuron[:,:,5]))
     bestobj.system_summary()
-    dsamt = True
-    while dsamt:
-        ct = random.randint(0,len(data_resamt)//sam_pro - 1)
-        if sum(abs(data_resamt[ct*sam_pro:ct*sam_pro+sam_pro])) <= 0.0001*sam_pro:
-            ct = random.randint(0,len(data_resamt)//sam_pro - 1)
-        else:
-            dsamt = False
+    
     for i in range(duration):
-        
+        dsamt = True
+        while dsamt:
+            ct = random.randint(0,len(data_resamt)//sam_pro - 1)
+            if sum(abs(data_resamt[ct*sam_pro:ct*sam_pro+sam_pro])) <= 0.0001*sam_pro:
+                ct = random.randint(0,len(data_resamt)//sam_pro - 1)
+            else:
+                dsamt = False
         bestobj.score = np.zeros(shape=(in_dim))
         bestobj.cu_score = 0
         bestobj.output = np.zeros(shape=(in_dim))

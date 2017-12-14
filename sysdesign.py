@@ -71,7 +71,7 @@ class SystemDesign(object):
     def __init__(self,gen= None,mutation = 0.1,input_dim = 5,emote_layers=3, num_emote_neurons=6,\
                  resp_layers=3, num_resp_neurons=8,f_max_connections=8, b_max_connections=8,\
                  active_threshold=0.00001,silent_threshold=0.001,LTDLTP = 0.3, max_weight=2,\
-                 epsilon = 0.1, neural_decay = 0.9, synaptic_diffuse = 0.5, lr = 0.00001,w_up = True):
+                 epsilon = 0.1, neural_decay = 0.9, synaptic_diffuse = 0.5, lr = 0.00001,w_up = True, mse_corr = True):
         
         ## Initialization of parameters
         SystemDesign.__id_count += 1
@@ -98,6 +98,7 @@ class SystemDesign(object):
         self.output = np.zeros(shape=(self.input_dim))
         self.input = np.zeros(shape=(self.input_dim))
         self.w_up = w_up
+        self.mse_corr = mse_corr
         #print('Input '+str(self.input.shape))
         #print('Output '+str(self.output.shape))
         self.fear_ig = 0
@@ -119,7 +120,7 @@ class SystemDesign(object):
         if self.w_up:
             self.w = np.random.uniform(-2,2,size=(4,self.num_emote_neurons+2))
         else:
-            self.w = np.zeros(shape=(4,self.num_emote_neurons+2))+1
+            self.w = np.zeros(shape=(4,self.num_emote_neurons+2))
         
         self.emote_neural_structure.astype(float)
         self.emote_neuron.astype(float)
@@ -279,7 +280,7 @@ class SystemDesign(object):
                                 
     def prim_emo_fire(self,input_val):
         #print('emo')
-        self.input = np.append(self.input,input_val)
+        self.input = np.append(self.input,input_val+1)
         self.emote_neuron[:,:,0] += self.neural_decay*self.emote_neuron[:,:,7]
         self.emote_neuron[:,:,7] = 0
         self.old_em = self.emote_copy
@@ -359,12 +360,13 @@ class SystemDesign(object):
             #print(self.emote_copy)
         #print(self.emote_neuron[:,:,0])                
         ## Implement Synaptic space
-        self.control_system()        
+        if self.w_up:
+            self.control_system()        
     def resp_sys_fire(self,input_val):
         #print('rs')
         #neuro_fsum = 0
         
-        self.output = np.append(self.output,np.nan_to_num(np.tanh(np.sum(np.nan_to_num(np.tanh(self.response_neuron[-1,:,0]))))))
+        self.output = np.append(self.output,1+np.nan_to_num(np.tanh(np.sum(np.nan_to_num(np.tanh(self.response_neuron[-1,:,0]))))))
         neuro_bsum = 0
         self.response_neuron[:,:,0] += self.neural_decay*self.response_neuron[:,:,7]
         self.response_neuron[:,:,7] = 0
@@ -454,10 +456,12 @@ class SystemDesign(object):
         #print('control')
         #print('Input '+str(self.input.shape))
         #print('Output '+str(self.output.shape))
-        if not (self.w_up):
-            self.w = np.zeros(shape=(4,self.num_emote_neurons+2))+1
+        #if not (self.w_up):
+        #    self.w = np.zeros(shape=(4,self.num_emote_neurons+2))
         if len(self.output)>=10+self.emote_layers:
             corrco = np.abs(np.around(np.nan_to_num(np.corrcoef(100000*self.input[-1:-11],100000*self.output[-1:-11]))[0,1], decimals =2))
+            if self.mse_corr:
+                corrco = 1-self.score[-1]
             delta1 = self.w[0,0]*(1-corrco) + np.sum(np.multiply(self.w[0,1:self.num_emote_neurons+1],self.emote_neuron[-1,:,0]))
             delta2 = self.lr*delta1*self.w[0,self.num_emote_neurons+1]* self.old_em
             if np.isnan(delta1):
