@@ -35,21 +35,33 @@ if __name__ == '__main__':
     #print('resampling')
     #data_resam = signal.resample(data_norm,10000)
     #print('######################################')
-
+    # Size of one sample set
     sam_pro = 10
+    # Max number of generations
     Total_gen = 20
+    # Max population per generation
     pop_gen = 20
+    # Total sample sets for training
     totsam = 100
+    # Threshold for stopping GA
     acc_thresh = 70
+    # Number of input to be sent at a time to the network
     in_dim = 5
+    # Emotion neurons for all models
     em_n = 12
+    # Response Neurons for all models
     rs_n = 16
+    # Emotion Layers for all models
     em_l = 3
+    # Response Layers for all models
     rs_l = 4
+    # Weight Update Active or Inactive
     w_update = True
+    
     ## choose between mse optimization(True) and corrcoef optimization(False)
     
     mse_corr = True
+    
     objlist = []
     list_sc = []
     best_score_gen = []
@@ -229,7 +241,7 @@ if __name__ == '__main__':
                 if s %2 == 0 and g>0:
                     #print('ok s0')
                     
-                    
+                    '''
                     new_net.emote_neural_structure[0,:,:,:,0] = model1em[0,:,:,:,0]
                     new_net.emote_neural_structure[1,:,:,:,0] = model2em[1,:,:,:,0]
                     new_net.emote_neural_structure[2,:,:,:,0] = model1em[2,:,:,:,0]
@@ -247,7 +259,7 @@ if __name__ == '__main__':
                     new_net.response_neuron[1,:,:] = model2rsne[1,:,:]
                     new_net.response_neuron[2,:,:] = model1rsne[2,:,:]
                     new_net.response_neuron[3,:,:] = model2rsne[3,:,:]
-                    
+                    '''
                     
                     
                     new_net.lr = bestobj.lr
@@ -259,6 +271,12 @@ if __name__ == '__main__':
 
                     for i in range(new_net.emote_layers):
                         for j in range(new_net.num_emote_neurons):
+                            if i%2 == 0:
+                                new_net.emote_neural_structure[i,:,:,:,0] = model1em[i,:,:,:,0]
+                                new_net.emote_neuron[i,:,:] = model1emne[i,:,:]
+                            else:
+                                new_net.emote_neural_structure[i,:,:,:,0] = model2em[i,:,:,:,0]
+                                new_net.emote_neuron[i,:,:] = model2emne[i,:,:]
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
                                 p= random.randint(4,5)
@@ -268,6 +286,12 @@ if __name__ == '__main__':
                     
                     for i in range(new_net.resp_layers):
                         for j in range(new_net.num_resp_neurons):
+                            if i%2 == 0:
+                                new_net.resp_neural_structure[i,:,:,:,0] = model1rs[i,:,:,:,0]
+                                new_net.response_neuron[i,:,:] = model1rsne[i,:,:]
+                            else:
+                                new_net.resp_neural_structure[i,:,:,:,0] = model2rs[i,:,:,:,0]
+                                new_net.response_neuron[i,:,:] = model2rsne[i,:,:]
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
                                 p= random.randint(4,5)
@@ -281,6 +305,7 @@ if __name__ == '__main__':
 
                 if s %2 == 1 and g>0:
                     #print('ok s1')
+                    '''
                     new_net.emote_neural_structure[0,:,:,:,0] = model2em[0,:,:,:,0]
                     new_net.emote_neural_structure[1,:,:,:,0] = model1em[1,:,:,:,0]
                     new_net.emote_neural_structure[2,:,:,:,0] = model2em[2,:,:,:,0]
@@ -298,7 +323,7 @@ if __name__ == '__main__':
                     new_net.response_neuron[1,:,:] = model1rsne[1,:,:]
                     new_net.response_neuron[2,:,:] = model2rsne[2,:,:]
                     new_net.response_neuron[3,:,:] = model1rsne[3,:,:]
-                    
+                    '''
                     new_net.lr = best2obj.lr
                     new_net.epsilon = best2obj.epsilon
                     new_net.w[0,:] = model1w[0,:]
@@ -309,6 +334,12 @@ if __name__ == '__main__':
                     
                     for i in range(new_net.emote_layers):
                         for j in range(new_net.num_emote_neurons):
+                            if i%2 == 0:
+                                new_net.emote_neural_structure[i,:,:,:,0] = model2em[i,:,:,:,0]
+                                new_net.emote_neuron[i,:,:] = model2emne[i,:,:]
+                            else:
+                                new_net.emote_neural_structure[i,:,:,:,0] = model1em[i,:,:,:,0]
+                                new_net.emote_neuron[i,:,:] = model1emne[i,:,:]
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
                                 new_net.emote_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
@@ -321,6 +352,12 @@ if __name__ == '__main__':
 
                     for i in range(new_net.resp_layers):
                         for j in range(new_net.num_resp_neurons):
+                            if i%2 == 0:
+                                new_net.resp_neural_structure[i,:,:,:,0] = model2rs[i,:,:,:,0]
+                                new_net.response_neuron[i,:,:] = model2rsne[i,:,:]
+                            else:
+                                new_net.resp_neural_structure[i,:,:,:,0] = model1rs[i,:,:,:,0]
+                                new_net.response_neuron[i,:,:] = model1rsne[i,:,:]
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
                                 new_net.resp_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
@@ -436,7 +473,7 @@ if __name__ == '__main__':
     plt.show(0)
     fig2.savefig('./results/MSEGen.png')
     
-    
+    ###############################################################################################################
     ## Testing phase
     filenamet = './dataLog/sample_4.wav'
     sampleratet, datat = wavfile.read(filenamet)
@@ -451,6 +488,7 @@ if __name__ == '__main__':
     data_resamt[abs(data_resamt[:])<0.0001] = 0.0001
     #data_resam += 1
     print(data_resamt.flatten().shape)
+    ## total sample set to be tested
     duration = 1000
     aclist = []
     score = []
