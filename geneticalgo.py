@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 plt.switch_backend('agg') 
 #import systemdesign
 import copy
-from systemdesign import SystemDesign
+from systemdesign_updated import SystemDesign
 
 if __name__ == '__main__':
 
@@ -37,9 +37,15 @@ if __name__ == '__main__':
 
     sam_pro = 10
     Total_gen = 20
-    pop_gen = 10
-    totsam = 10000
+    pop_gen = 20
+    totsam = 100
     acc_thresh = 70
+    in_dim = 5
+    em_n = 12
+    rs_n = 16
+    em_l = 3
+    rs_l = 4
+    w_update = False
     objlist = []
     list_sc = []
     best_score_gen = []
@@ -50,17 +56,25 @@ if __name__ == '__main__':
     #print(data_resam[c*sam_pro:c*sam_pro+10])
     
     logfile = open('./dataLog/log.txt','w+')
-    logfile.write('\nTime started : '+str(d1))
-    logfile.write('\nFile : '+filename)
-    logfile.write('\nFile Length :'+str(data.shape))
-    logfile.write('\n')
-    logfile.write('\nSample set size : '+str(sam_pro))
-    logfile.write('\nMax generation per sample : '+str(Total_gen))
-    logfile.write('\nPopulation per generation : '+str(pop_gen))
-    logfile.write('\nCross correlation threshold : '+str(acc_thresh))
-    logfile.write('\nTotal sample being trained on : '+str(totsam))
+    logfile.write('##################################################################################')
+    logfile.write('\n#Time started                    : '+str(d1))
+    logfile.write('\n#File                            : '+filename)
+    logfile.write('\n#File Length                     :'+str(data.shape))
+    logfile.write('\n#')
+    logfile.write('\n#Sample set size                 : '+str(sam_pro))
+    logfile.write('\n#Max generation per sample       : '+str(Total_gen))
+    logfile.write('\n#Population per generation       : '+str(pop_gen))
+    logfile.write('\n#Cross correlation threshold     : '+str(acc_thresh))
+    logfile.write('\n#Total sample being trained on   : '+str(totsam))
+    logfile.write('\n#Input Dimesion                  : '+str(in_dim))
+    logfile.write('\n#Emotion Neurons                 : '+str(em_n))
+    logfile.write('\n#Emotion Layers                  : '+str(em_l))
+    logfile.write('\n#Response Neurons                : '+str(rs_n))
+    logfile.write('\n#Response Layers                 : '+str(rs_l))
+    logfile.write('\n##################################################################################')
     print('##################################################################################')
     print('Training Started')
+    logfile.write('\nTraining Started')
     counter = 0
     
     for samp in range(totsam):
@@ -70,7 +84,7 @@ if __name__ == '__main__':
         list_sc = []
         while dsam:
             c = random.randint(0,len(data_resam)//sam_pro - 1)
-            if sum(abs(data_resam[c*sam_pro:c*sam_pro+10])) <= 0.0001*sam_pro:
+            if sum(abs(data_resam[c*sam_pro:c*sam_pro+sam_pro])) <= 0.0001*sam_pro*10:
                 c = random.randint(0,len(data_resam)//sam_pro - 1)
             else:
                 dsam = False
@@ -80,16 +94,16 @@ if __name__ == '__main__':
         print('start sample : '+str(samp))
         while flag:
             #print(flag)
-            print('#############################################################')
-            print('start sample : '+str(samp))
+            print('\n#############################################################')
+            print('\nstart sample : '+str(samp))
             print('\tGenetic Algorithm Generation : '+str(g))
             for s in range(pop_gen):
                 if samp > 0:
                     new_net = copy.deepcopy(bestobj)
-                    new_net.score = np.zeros(shape=(1))
+                    new_net.score = np.zeros(shape=(in_dim))
                     new_net.cu_score = 0
-                    new_net.output = np.zeros(shape=(2))
-                    new_net.input = np.zeros(shape=(2))
+                    new_net.output = np.zeros(shape=(in_dim))
+                    new_net.input = np.zeros(shape=(in_dim))
                     if s == 0:
                         new_net.reset_id()
                     new_net.gen = g+1
@@ -98,7 +112,9 @@ if __name__ == '__main__':
                         for j in range(new_net.num_emote_neurons):
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
+                                p= random.randint(4,5)
                                 new_net.emote_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
+                                new_net.emote_neuron[i,j,p] = random.uniform(0,1)
                     #print(new_net.resp_neural_structure[:,:,:,:,0])
                     
                     for i in range(4):
@@ -110,17 +126,19 @@ if __name__ == '__main__':
                         for j in range(new_net.num_resp_neurons):
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
+                                p= random.randint(4,5)
                                 new_net.resp_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
+                                new_net.response_neuron[i,j,p] = random.uniform(0,1)
                 else:    
-                    new_net = SystemDesign(gen=g+1,num_emote_neurons=64,resp_layers=4,num_resp_neurons=128)
+                    new_net = SystemDesign(gen=g+1,input_dim = in_dim,num_emote_neurons=em_n,resp_layers=rs_l,num_resp_neurons=rs_n, w_up = w_update)
                     new_net.structural_connection()
                     new_net.random_connection()
                 objlist.append(new_net)
                 #for obj in objlist:
                 #    print(obj.gen,obj.id)
-                if g==0 and s==0 and samp>0:
+                #if g==0 and s==0 and samp>0:
                     #list_sc[-1].sort(key= lambda x:(x[1],x[2]))
-                    best_score_gen.append([counter-1,best_score,mse])
+                #    best_score_gen.append([counter-1,best_score,mse])
                 ## Select top 2
                 if g>0 and s == 0:
                     #print('ok g')
@@ -179,9 +197,11 @@ if __name__ == '__main__':
                     #print('\t'+str(list_sc[-1]))
                     #del objlist[0:pop_gen]
                     best_score_gen.append([counter-1,best_score,mse])
-                    if best_score >= acc_thresh or g>Total_gen-1:
+                    if best_score >= acc_thresh or g>Total_gen:
                         #print('Exceed')
                         flag = False
+                        counter += 1
+                        break
                         #print(flag)
 
                 
@@ -222,14 +242,18 @@ if __name__ == '__main__':
                         for j in range(new_net.num_emote_neurons):
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
-                                new_net.resp_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
+                                p= random.randint(4,5)
+                                new_net.emote_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
+                                new_net.emote_neuron[i,j,p] = random.uniform(0,1)
                     #print(new_net.resp_neural_structure[:,:,:,:,0])
                     
                     for i in range(new_net.resp_layers):
                         for j in range(new_net.num_resp_neurons):
                             if np.random.rand() <= new_net.mutation:
                                 x=random.randint(0,1)
+                                p= random.randint(4,5)
                                 new_net.resp_neural_structure[i,j,x,:,0] = random.uniform(0.5,1.5)
+                                new_net.response_neuron[i,j,p] = random.uniform(0,1)
                     
                     for i in range(4):
                         for j in range(new_net.num_emote_neurons+2):
@@ -314,7 +338,7 @@ if __name__ == '__main__':
                         #print('%i ms data processed'%(d//8))
                     new_net.prim_emo_fire(data_resam[c*sam_pro + d])
                     new_net.resp_sys_fire(data_resam[c*sam_pro + d])
-                    new_net.control_system()
+                    #new_net.control_system()
                     
                 acc = np.around(np.nan_to_num(np.corrcoef(x*new_net.input[-1:-sam_pro:-1],x*new_net.output[-2:-sam_pro-1:-1]))[0,1]*100, decimals =2)
                 #print(new_net.input[-1:-10:-1])
@@ -339,29 +363,29 @@ if __name__ == '__main__':
             counter += 1
         list_sc[-1].sort(key= lambda x:(x[1],x[2]))
         print('\t'+str(list_sc[-1][-1]))
-        best_score = list_sc[-1][-1][1]
-        mse = list_sc[-1][-1][2]
-        for obj in objlist:
-            #if obj.gen == g:
-                #print(obj.id)
-            if obj.id == list_sc[-1][-1][0]:
-                print(obj.id)
-                bestobj = copy.deepcopy(obj)
-                model1em = obj.emote_neural_structure
-                model1emne = obj.emote_neuron
-                model1rs = obj.resp_neural_structure
-                model1rsne = obj.response_neuron
-                model1w = obj.w
-                bestobj.save_model(filename=filename1)
-            elif obj.id == list_sc[-1][-2][0]:
-                print(obj.id)
-                best2obj = copy.deepcopy(obj)
-                model2em = obj.emote_neural_structure
-                model2emne = obj.emote_neuron
-                model2rs = obj.resp_neural_structure
-                model2rsne = obj.response_neuron
-                model2w = obj.w
-                best2obj.save_model(filename=filename2)
+        #best_score = list_sc[-1][-1][1]
+        #mse = list_sc[-1][-1][2]
+        #for obj in objlist:
+        #    #if obj.gen == g:
+        #        #print(obj.id)
+        #    if obj.id == list_sc[-1][-1][0]:
+        #        print(obj.id)
+        #        bestobj = copy.deepcopy(obj)
+        #        model1em = obj.emote_neural_structure
+        #        model1emne = obj.emote_neuron
+        #        model1rs = obj.resp_neural_structure
+        #        model1rsne = obj.response_neuron
+        #        model1w = obj.w
+        #        bestobj.save_model(filename=filename1)
+        #    elif obj.id == list_sc[-1][-2][0]:
+        #        print(obj.id)
+        #        best2obj = copy.deepcopy(obj)
+        #        model2em = obj.emote_neural_structure
+        #        model2emne = obj.emote_neuron
+        #        model2rs = obj.resp_neural_structure
+        #        model2rsne = obj.response_neuron
+        #        model2w = obj.w
+        #        best2obj.save_model(filename=filename2)
         print('Sample End')
         print('########################################################')
     print('Training Ended')    
@@ -440,15 +464,19 @@ if __name__ == '__main__':
     logfile.write('\nPrimal Emotion Neuron inhibit prob: \n'+str(bestobj.emote_neuron[:,:,5]))
     logfile.write('\nResponse Neuron inhibit prob      : \n'+str(bestobj.response_neuron[:,:,5]))
     bestobj.system_summary()
-    for i in range(duration):
-        dsamt = True
-        while dsamt:
+    dsamt = True
+    while dsamt:
+        ct = random.randint(0,len(data_resamt)//sam_pro - 1)
+        if sum(abs(data_resamt[ct*sam_pro:ct*sam_pro+sam_pro])) <= 0.0001*sam_pro:
             ct = random.randint(0,len(data_resamt)//sam_pro - 1)
-            if sum(abs(data_resamt[ct*sam_pro:ct*sam_pro+10])) <= 0.0001*sam_pro:
-                ct = random.randint(0,len(data_resamt)//sam_pro - 1)
-            else:
-                dsamt = False
+        else:
+            dsamt = False
+    for i in range(duration):
         
+        bestobj.score = np.zeros(shape=(in_dim))
+        bestobj.cu_score = 0
+        bestobj.output = np.zeros(shape=(in_dim))
+        bestobj.input = np.zeros(shape=(in_dim))
         for dt in range(sam_pro):
               
             #if d%800 == 0:
@@ -458,7 +486,7 @@ if __name__ == '__main__':
                 #print('%i ms data processed'%(d//8))
             bestobj.prim_emo_fire(data_resamt[ct*sam_pro + dt])
             bestobj.resp_sys_fire(data_resamt[ct*sam_pro + dt])
-            bestobj.control_system()
+            #bestobj.control_system()
         acc = np.around(np.nan_to_num(np.corrcoef(xt*bestobj.input[-1:-sam_pro:-1],xt*bestobj.output[-2:-sam_pro-1:-1]))[0,1]*100, decimals =2)
         #if np.sum(np.power(bestobj.score[bestobj.resp_layers:],2))/(sam_pro-bestobj.resp_layers) <= 0.0001:
         #    acc = 100
